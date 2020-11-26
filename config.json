@@ -1,0 +1,12 @@
+{
+    "debug": true,
+    "port": 8104,
+    "host": "home.gardna.net",
+    "wss": false,
+
+    "key_file": "./src/lib/keys.ts",
+
+    "graphics": {
+        "shadows": 1
+    }
+}

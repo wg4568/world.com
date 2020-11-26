@@ -1,0 +1,5 @@
+static/js/bundle.js
+src/lib/keys.ts
+.vs
+node_modules
+build
