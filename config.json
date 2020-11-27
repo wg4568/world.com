@@ -1,5 +1,6 @@
 {
     "debug": true,
+    "freecam": false,
     "port": 8104,
     "host": "home.gardna.net",
     "wss": false,

@@ -15,11 +15,22 @@ export class Debugger {
         this.renderer = renderer;
         this.enabled = enabled;
 
-        if (this.enabled)
+        if (this.enabled) {
             this.controls = new OrbitControls(
                 this.camera,
                 this.renderer.domElement
             );
+
+            document.addEventListener("keydown", (evt) => {
+                // if (evt.code == "KeyF") {
+                //     if (this.controls) {
+                //         this.controls.target.x = this.camera.position.x;
+                //         this.controls.target.y = this.camera.position.y;
+                //         this.controls.target.z = this.camera.position.z;
+                //     }
+                // }
+            });
+        }
 
         if (this.enabled && this.saveExists()) this.loadFromSave();
         else this.clearSave();
