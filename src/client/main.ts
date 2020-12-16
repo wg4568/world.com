@@ -1,10 +1,11 @@
 import * as THREE from "three";
-import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader";
+
 import { PointerLockControls } from "three/examples/jsm/controls/PointerLockControls";
-import { Debugger } from "./debugger";
+import { bindDocumentInputs, InputState } from "../lib/input";
+import { Debugger } from "./util/debugger";
 
 import config from "../../config.json";
-import { bindDocumentInputs, InputState } from "../lib/input";
+import resources from "./resources";
 
 function resizeWindow() {
     renderer.setSize(window.innerWidth, window.innerHeight);
@@ -12,42 +13,14 @@ function resizeWindow() {
     camera.updateProjectionMatrix();
 }
 
-function setPixelArt(texture: THREE.Texture) {
-    texture.minFilter = THREE.NearestFilter;
-    texture.magFilter = THREE.NearestFilter;
-}
-
-function rotate(amount: number) {
-    return (texture: THREE.Texture) => {
-        texture.center = new THREE.Vector2(0.5, 0.5);
-        texture.rotation = (amount * Math.PI) / 2;
-    };
-}
-
-function repeat(x: number, y: number) {
-    return (texture: THREE.Texture) => {
-        texture.wrapS = THREE.RepeatWrapping;
-        texture.wrapT = THREE.RepeatWrapping;
-        texture.repeat = new THREE.Vector2(x, y);
-    };
-}
-
-function enableShadows(obj: THREE.Group) {
-    obj.traverse((child) => {
-        if (child instanceof THREE.Mesh) {
-            child.castShadow = true;
-            child.receiveShadow = true;
-        }
-    });
-}
-
 // initial setup
 const scene = new THREE.Scene();
-export var camera = new THREE.PerspectiveCamera(75, 1, 0.1, 20000);
+const camera = new THREE.PerspectiveCamera(75, 1, 0.1, 20000);
 const renderer = new THREE.WebGLRenderer();
 const debug = new Debugger(camera, renderer, config.freecam);
 const clock = new THREE.Clock();
 const input = new InputState();
+
 scene.background = new THREE.Color(0xd6eef8);
 renderer.shadowMap.enabled = true;
 bindDocumentInputs(input);
@@ -58,36 +31,11 @@ window.addEventListener("resize", resizeWindow);
 document.body.appendChild(renderer.domElement);
 resizeWindow();
 
-// load textures
-const loader = new THREE.TextureLoader();
-const textures = new Map<string, THREE.Texture>();
-textures.set("sky_up", loader.load("static/img/skybox/up.bmp", rotate(1)));
-textures.set("sky_down", loader.load("static/img/skybox/down.bmp", rotate(-1)));
-textures.set("sky_north", loader.load("static/img/skybox/north.bmp"));
-textures.set("sky_south", loader.load("static/img/skybox/south.bmp"));
-textures.set("sky_east", loader.load("static/img/skybox/east.bmp"));
-textures.set("sky_west", loader.load("static/img/skybox/west.bmp"));
-textures.set("grass", loader.load("static/img/grass.jpg", repeat(100, 100)));
-
-for (var d = 1; d <= 15; d++)
-    textures.set(
-        `guy${d}`,
-        loader.load(`static/img/dudes/dude${d}.png`, setPixelArt)
-    );
-
-const gltfLoader = new GLTFLoader();
-gltfLoader.load("static/model/world/world.glb", (gltf) => {
-    gltf.scene.scale.set(10, 10, 10);
-    gltf.scene.receiveShadow = true;
-    enableShadows(gltf.scene);
-    // scene.add(gltf.scene);
-});
-
 function create_dude(idx: number) {
     var dude = new THREE.Mesh(
         new THREE.PlaneGeometry(),
         new THREE.MeshLambertMaterial({
-            map: textures.get(`guy${idx}`),
+            map: resources.texture(`dude${idx}`),
             side: THREE.DoubleSide,
             alphaTest: 1
         })
@@ -100,7 +48,12 @@ function create_dude(idx: number) {
     dude.receiveShadow = true;
     dude.customDepthMaterial = new THREE.MeshDepthMaterial({
         depthPacking: THREE.RGBADepthPacking,
-        map: textures.get(`guy${idx}`),
+        map: resources.texture(`dude${idx}`),
+        alphaTest: 0.5
+    });
+
+    dude.customDistanceMaterial = new THREE.MeshDistanceMaterial({
+        map: resources.texture(`dude${idx}`),
         alphaTest: 0.5
     });
 
@@ -111,7 +64,7 @@ function create_ground() {
     var plane = new THREE.Mesh(
         new THREE.PlaneGeometry(1000, 1000),
         new THREE.MeshPhongMaterial({
-            map: textures.get("grass"),
+            map: resources.texture("grass"),
             reflectivity: 0,
             shininess: 0
         })
@@ -127,7 +80,7 @@ function create_ground() {
 function create_skybox() {
     let make_texture = (name: string) => {
         return new THREE.MeshBasicMaterial({
-            map: textures.get(name),
+            map: resources.texture(name),
             side: THREE.BackSide
         });
     };
@@ -153,8 +106,8 @@ function create_hemi() {
 function create_sun() {
     var sun = new THREE.DirectionalLight(0xffffff, 0.7);
     sun.castShadow = true;
-    sun.shadow.mapSize.width = 1024 * 5 * config.graphics.shadows;
-    sun.shadow.mapSize.height = 1024 * 5 * config.graphics.shadows;
+    sun.shadow.mapSize.width = 1024 * 5 * config.game.shadows;
+    sun.shadow.mapSize.height = 1024 * 5 * config.game.shadows;
     sun.shadow.bias = -0.0001;
     sun.shadow.camera = new THREE.OrthographicCamera(
         -100,
@@ -168,146 +121,92 @@ function create_sun() {
     var helper = new THREE.DirectionalLightHelper(sun, 5);
     scene.add(helper);
 
-    sun.position.set(0, 70, 0);
+    sun.position.set(100, 70, 100);
 
     return sun;
 }
 
-var skybox = create_skybox();
-var sun = create_sun();
-var hemi = create_hemi();
-var ground = create_ground();
-
-scene.add(skybox);
-scene.add(sun);
-scene.add(hemi);
-scene.add(ground);
+function create_bladee() {
+    var bladee = resources.gltf("bladee").scene.clone();
+    bladee.position.set(-40, 30, -40);
+    return bladee;
+}
 
 camera.position.set(1, 3, 2);
 
-export const controls = new PointerLockControls(camera, renderer.domElement);
-renderer.domElement.onclick = () => {
-    controls.lock();
-};
+const controls = new PointerLockControls(camera, renderer.domElement);
+renderer.domElement.onclick = () => controls.lock();
 
-var speeds = {
-    walk: 0.1,
-    sprint: 0.25
-};
+var dude = parseInt(
+    prompt(`DUDE? (number from 1-${config.game.dudes})`) as string
+);
+if (dude < 1 || dude > config.game.dudes) alert("bro...");
 
-var dude = parseInt(prompt("DUDE? (number from 1-15)") as string);
-var me = create_dude(dude);
-var me_id = -1;
-scene.add(me);
+resources.ready(() => {
+    console.log(resources);
 
-var socket = new WebSocket("ws://home.gardna.net:8104");
-var players = new Map<
-    number,
-    { x: number; y: number; z: number; a: number; d: THREE.Mesh }
->();
+    var skybox = create_skybox();
+    var sun = create_sun();
+    var hemi = create_hemi();
+    var ground = create_ground();
+    var bladee = create_bladee();
 
-socket.onmessage = (msg) => {
-    var data = JSON.parse(msg.data);
+    var store = resources.gltf("jam").scene.clone();
+    store.position.set(40, 7, 40);
+    store.rotation.y = -Math.PI / 2;
+    // scene.add(store);
 
-    if (data.t == 0) me_id = data.i;
-    if (data.t == 2) players.delete(data.i);
-    else if (data.t == 1) {
-        var frame = data.p as {
-            i: number;
-            x: number;
-            y: number;
-            z: number;
-            a: number;
-            d: number;
-        }[];
+    var seven = resources.gltf("711").scene.clone();
+    seven.position.set(100, 1, 100);
+    scene.add(seven);
 
-        frame.forEach((e) => {
-            var pl = players.get(e.i);
-            if (e.i == me_id) return;
+    var pattie = new THREE.PointLight(0xffff00, 1);
+    pattie.position.set(40, 10, 40);
+    pattie.castShadow = true;
+    pattie.shadow.bias = -0.0001;
+    // scene.add(pattie);
 
-            if (pl) {
-                players.set(e.i, {
-                    x: e.x,
-                    y: e.y,
-                    z: e.z,
-                    a: e.a,
-                    d: pl.d
-                });
-            } else {
-                var m = create_dude(e.d);
-                players.set(e.i, {
-                    x: e.x,
-                    y: e.y,
-                    z: e.z,
-                    a: e.a,
-                    d: m
-                });
-                scene.add(m);
-            }
-        });
+    var kraft = resources.gltf("kraft").scene.clone();
+    kraft.position.set(10, 0, 10);
+    scene.add(kraft);
+
+    scene.add(skybox);
+    scene.add(sun);
+    scene.add(hemi);
+    scene.add(ground);
+    scene.add(bladee);
+
+    var me = create_dude(dude);
+    var me_id = -1;
+    scene.add(me);
+
+    for (var i = 1; i < config.game.dudes; i++) {
+        let dude = create_dude(i);
+        dude.position.set(4 * i, 2, 0);
+        scene.add(dude);
     }
-};
 
-function send_position() {
-    if (socket.readyState != WebSocket.OPEN) return;
+    function frame() {
+        requestAnimationFrame(frame);
+        var delta = clock.getDelta();
 
-    socket.send(
-        JSON.stringify({
-            x: camera.position.x,
-            y: camera.position.y,
-            z: camera.position.z,
-            a: camera.rotation.y,
-            d: dude
-        })
-    );
-}
+        var speed = config.game.walk;
+        if (input.keyboard.get("ShiftLeft")) speed = config.game.sprint;
+        if (input.keyboard.get("KeyW")) controls.moveForward(speed);
+        if (input.keyboard.get("KeyS")) controls.moveForward(-speed);
+        if (input.keyboard.get("KeyD")) controls.moveRight(speed);
+        if (input.keyboard.get("KeyA")) controls.moveRight(-speed);
 
-function frame() {
-    requestAnimationFrame(frame);
-    var delta = clock.getDelta();
+        if (input.keyboard.get("ArrowLeft")) bladee.rotation.y -= 0.01;
+        if (input.keyboard.get("ArrowRight")) bladee.rotation.y += 0.01;
 
-    var speed = speeds.walk;
-    if (input.keyboard.get("ShiftLeft")) speed = speeds.sprint;
-    if (input.keyboard.get("KeyW")) controls.moveForward(speed);
-    if (input.keyboard.get("KeyS")) controls.moveForward(-speed);
-    if (input.keyboard.get("KeyD")) controls.moveRight(speed);
-    if (input.keyboard.get("KeyA")) controls.moveRight(-speed);
+        me.position.x = camera.position.x;
+        me.position.z = camera.position.z;
+        me.rotation.y = camera.rotation.y;
 
-    me.position.x = camera.position.x;
-    me.position.z = camera.position.z;
-    me.rotation.y = camera.rotation.y;
+        debug.debugFrame();
+        renderer.render(scene, camera);
+    }
 
-    sun.position.x = camera.position.x;
-    sun.position.z = camera.position.z;
-    // sun.target.position.set(
-    //     camera.position.x + 100,
-    //     0,
-    //     camera.position.z + 100
-    // );
-    // sun.updateMatrixWorld();
-
-    players.forEach((v, k) => {
-        if (k != me_id) {
-            v.d.position.set(v.x, v.y, v.z);
-            v.d.rotation.y = v.a;
-        }
-    });
-
-    socket.send(
-        JSON.stringify({
-            x: me.position.x,
-            y: me.position.y,
-            z: me.position.z,
-            a: me.rotation.y,
-            d: dude
-        })
-    );
-
-    // sun.position.x += 0.05;
-    // if (sun.position.x > 50) sun.position.x = -50;
-
-    debug.debugFrame();
-    renderer.render(scene, camera);
-}
-
-frame();
+    frame();
+});

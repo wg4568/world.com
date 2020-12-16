@@ -1,13 +1,19 @@
 {
     "debug": true,
     "freecam": false,
-    "port": 8104,
-    "host": "home.gardna.net",
-    "wss": false,
+
+    "server": {
+        "port": 8104,
+        "host": "home.gardna.net",
+        "wss": false
+    },
 
     "key_file": "./src/lib/keys.ts",
 
-    "graphics": {
-        "shadows": 1
+    "game": {
+        "dudes": 16,
+        "shadows": 2,
+        "walk": 0.1,
+        "sprint": 0.25
     }
 }

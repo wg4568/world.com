@@ -16,12 +16,18 @@ app.get("/", (req, res) => {
     });
 });
 
+app.get("/help", (req, res) => {
+    Twig.renderFile("./pages/help.html", {}, (err, html) => {
+        res.send(html);
+    });
+});
+
 app.get("/favicon.ico", (req, res) => {
     res.sendFile("img/favicon.ico", { root: "static" });
 });
 
-const server = app.listen(config.port, () => {
-    console.log(`Server listening on port ${config.port}`);
+const server = app.listen(config.server.port, () => {
+    console.log(`Server listening on port ${config.server.port}`);
 });
 
 server.on("upgrade", (req, sock, head) => {
